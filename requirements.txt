@@ -7,3 +7,16 @@ streamlit
 openpyxl
 docx2txt
 openai
+streamlit-folium
+streamlit-autorefresh
+folium
+matplotlib
+joblib
+scikit-learn
+requests
+httpx
+groq
+openai
+shap
+xgboost
+geopy 
