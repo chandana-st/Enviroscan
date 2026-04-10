@@ -1,0 +1,9 @@
+pandas
+matplotlib
+numpy
+PyPDF2
+spacy
+streamlit
+openpyxl
+docx2txt
+openai
