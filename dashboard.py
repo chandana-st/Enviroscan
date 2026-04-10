@@ -15,8 +15,6 @@ import docx2txt
 import base64
 from PyPDF2 import PdfReader
 
-from rules import handle_rules
-
 # ================= PAGE CONFIG =================
 st.set_page_config(page_title="EnviroScan Dashboard", layout="wide")
 
