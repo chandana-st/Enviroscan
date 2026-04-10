@@ -791,7 +791,7 @@ with tab4:
         </style>
     """, unsafe_allow_html=True)
 
-    st.header("💬 Environmental Data Analyst")
+    
 
     # --- 2. DATA LOADING ---
     @st.cache_data
