@@ -316,7 +316,7 @@ st.markdown('<div class="sub-title">AI-Powered Air Pollution Monitoring & Predic
 df = pd.read_csv("vij_hyd_labelled_dataset.csv")
 
 model = joblib.load("gradient_boost_pollution_model.pkl")
-le = joblib.load("models/label_encoder.pkl")
+le = joblib.load("label_encoder.pkl")
 
 FEATURE_COLS = [
     "pm2_5","pm10","no2","o3","so2","co",
