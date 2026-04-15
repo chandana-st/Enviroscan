@@ -14,7 +14,6 @@ from streamlit_autorefresh import st_autorefresh
 import docx2txt
 import base64
 from PyPDF2 import PdfReader
-from rules import handle_rules
 from groq import Groq
 import httpx
 
