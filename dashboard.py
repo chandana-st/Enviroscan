@@ -14,309 +14,188 @@ from streamlit_autorefresh import st_autorefresh
 import docx2txt
 import base64
 from PyPDF2 import PdfReader
+from rules import handle_rules
+from groq import Groq
+import httpx
+
 
 # ================= PAGE CONFIG =================
 st.set_page_config(page_title="EnviroScan Dashboard", layout="wide")
 
-# ================= PREMIUM CSS =================
+# ==========================================
+# GLOBAL ENVIROSCAN DARK POLLUTION THEME
+# ==========================================
 st.markdown("""
 <style>
-
-/* ===== APP BACKGROUND ===== */
+/* ===== PAGE BACKGROUND ===== */
 .stApp {
-    background:
-        linear-gradient(rgba(255,255,255,0.96), rgba(255,255,255,0.96)),
-        url("https://images.unsplash.com/photo-1473773508845-188df298d2d1");
+    background: linear-gradient(rgba(15, 23, 42, 0.35), rgba(15, 23, 42, 0.35)),
+            url("https://pplx-res.cloudinary.com/image/upload/pplx_search_images/4076553fbccce11ef6a75bfd766ba3cb7c2ce91d.jpg");                
     background-size: cover;
     background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
 }
 
-/* ===== FIX ALL TEXT VISIBILITY ===== */
-h1, h2, h3, h4, h5, h6, p, label, div {
-    color: #0f172a !important;
+/* ===== REMOVE ALL DEFAULT CONTAINERS ===== */
+html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
+    background: transparent !important;
+}
+
+.block-container {
+    max-width: 100% !important;
+    padding-top: 2rem !important;
+    padding-left: 4rem !important;
+    padding-right: 4rem !important;
+    padding-bottom: 2rem !important;
+    background: transparent !important;
+}
+
+/* remove all streamlit wrapper backgrounds */
+div[data-testid="stVerticalBlock"],
+div[data-testid="stHorizontalBlock"],
+div[data-testid="column"],
+div[data-testid="stTabs"],
+div[data-testid="stMarkdownContainer"] {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* ===== HEADER ===== */
+[data-testid="stHeader"] {
+    background: transparent !important;
 }
 
 /* ===== SIDEBAR ===== */
 [data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #0f172a, #1e293b);
+    background: rgba(30, 41, 59, 0.78) !important;
+    backdrop-filter: blur(10px);
+    border-right: 1px solid rgba(255,255,255,0.08);
 }
 
-[data-testid="stSidebar"] label,
-[data-testid="stSidebar"] p,
-[data-testid="stSidebar"] span,
-[data-testid="stSidebar"] .stMarkdown {
-    color: #e2e8f0 !important;
-}
-/* ===== FIX HEADER (DEPLOY / STOP BUTTONS) ===== */
-header[data-testid="stHeader"] {
-    background: rgba(255,255,255,0.95) !important;
-    border-bottom: 1px solid #e2e8f0 !important;
-}
-
-/* Make header text/icons visible */
-header[data-testid="stHeader"] * {
-    color: #0f172a !important;
-}
-
-/* Specifically target Deploy/Stop buttons */
-header[data-testid="stHeader"] button {
-    background: #ffffff !important;
-    color: #0f172a !important;
-    border-radius: 8px !important;
-    border: 1px solid #cbd5e1 !important;
-    padding: 4px 10px !important;
-}
-
-/* Hover effect */
-header[data-testid="stHeader"] button:hover {
-    background: #eff6ff !important;
-    color: #2563eb !important;
-}
-/* ===== SAFE TEXT COLOR FIX ===== */
-body, .stApp {
-    color: #0f172a;
-}
-
-/* Fix DataFrame popup menus (3 dots menu) */
-[data-baseweb="menu"],
-[data-baseweb="popover"],
-[data-baseweb="list"] {
-    background: #ffffff !important;
-    color: #0f172a !important;
-}
-
-/* Menu items */
-[data-baseweb="menu"] *,
-[data-baseweb="popover"] * {
-    color: #0f172a !important;
-}
-
-/* Hover effect */
-[data-baseweb="menu"] li:hover {
-    background: #eff6ff !important;
-    color: #2563eb !important;
-}
-
-/* ===== SIDEBAR SELECTBOX ===== */
-[data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] > div {
-    background: #0b1220 !important;
-    border: 1px solid rgba(255,255,255,0.18) !important;
-    border-radius: 12px !important;
-    min-height: 48px !important;
-    box-shadow: none !important;
-}
-
-[data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] div,
-[data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] span {
-    color: #ffffff !important;
-    opacity: 1 !important;
-    background: transparent !important;
-}
-
-[data-testid="stSidebar"] .stSelectbox input {
-    color: #ffffff !important;
-    -webkit-text-fill-color: #ffffff !important;
-    background: transparent !important;
-}
-
-[data-testid="stSidebar"] .stSelectbox input::placeholder {
-    color: #cbd5e1 !important;
-    opacity: 1 !important;
-}
-
-[data-testid="stSidebar"] .stSelectbox svg {
-    fill: #ffffff !important;
-}
-
-/* ===== MAIN PAGE SELECTBOX ===== */
-.stSelectbox div[data-baseweb="select"] > div {
-    background: rgba(255,255,255,0.78) !important;
-    border: 1px solid rgba(37, 99, 235, 0.20) !important;
-    border-radius: 12px !important;
-    min-height: 48px !important;
-    color: #0f172a !important;
-    box-shadow: none !important;
-}
-
-.stSelectbox div[data-baseweb="select"] div,
-.stSelectbox div[data-baseweb="select"] span {
-    color: #0f172a !important;
-    opacity: 1 !important;
-    background: transparent !important;
-}
-
-.stSelectbox input {
-    color: #0f172a !important;
-    -webkit-text-fill-color: #0f172a !important;
-    background: transparent !important;
-}
-
-.stSelectbox input::placeholder {
-    color: #64748b !important;
-    opacity: 1 !important;
-}
-
-.stSelectbox svg {
-    fill: #0f172a !important;
-}
-
-/* ===== MAIN PAGE SELECTBOX FOCUS / ACTIVE ===== */
-.stSelectbox div[data-baseweb="select"] > div:focus-within,
-.stSelectbox div[data-baseweb="select"] > div:hover,
-.stSelectbox div[data-baseweb="select"] > div:active {
-    background: rgba(255,255,255,0.94) !important;
-    border: 1px solid #2563eb !important;
-    box-shadow: 0 0 0 2px rgba(37,99,235,0.12) !important;
-}
-
-/* ===== DROPDOWN ===== */
-div[role="listbox"] {
-    background: #ffffff !important;
-    border: 1px solid #dbe4f0 !important;
-    border-radius: 12px !important;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.18) !important;
-    z-index: 99999 !important;
-}
-
-ul[data-testid="stSelectboxVirtualDropdown"] {
-    background: #ffffff !important;
-}
-
-ul[data-testid="stSelectboxVirtualDropdown"] li,
-ul[data-testid="stSelectboxVirtualDropdown"] li * {
-    background: #ffffff !important;
-    color: #0f172a !important;
-    opacity: 1 !important;
-}
-
-ul[data-testid="stSelectboxVirtualDropdown"] li:hover,
-ul[data-testid="stSelectboxVirtualDropdown"] li:hover * {
-    background: #eff6ff !important;
-    color: #0f172a !important;
-}
-
-ul[data-testid="stSelectboxVirtualDropdown"] li[aria-selected="true"],
-ul[data-testid="stSelectboxVirtualDropdown"] li[aria-selected="true"] * {
-    background: #dbeafe !important;
-    color: #1d4ed8 !important;
-    font-weight: 700 !important;
-}
-
-div[role="menu"],
-div[role="listbox"],
-[data-baseweb="popover"],
-[data-baseweb="menu"],
-[data-baseweb="select"] {
-    background-color: #1f2937 !important;
-    color: #f9fafb !important;
-    border: 1px solid #374151 !important;
-}
-
-div[role="menu"] *,
-div[role="listbox"] *,
-[data-baseweb="popover"] *,
-[data-baseweb="menu"] *,
-[data-baseweb="select"] * {
-    color: #f9fafb !important;
-}
-
-div[role="menuitem"]:hover,
-li:hover,
-[data-baseweb="menu"] li:hover {
-    background-color: #374151 !important;
-    color: #ffffff !important;
-}
-section[data-testid="stFileUploadDropzone"] button {
-    background-color: #4F46E5 !important; /* A nice indigo blue */
-    color: white !important;
-    border: 1px solid white !important;
-    visibility: visible !important;
-    }
-    
-/* This ensures the 'Drag and drop' text is also readable */
-section[data-testid="stFileUploadDropzone"] label {
+/* ===== TEXT ===== */
+h1, h2, h3, h4, h5, h6, p, label, div, span {
     color: white !important;
 }
 
-/* ===== TITLES ===== */
+/* ===== TITLE ===== */
 .main-title {
     text-align: center;
-    font-size: 3rem;
-    font-weight: 800;
-    color: #0f172a !important;
+    font-size: 4rem;
+    font-weight: 900;
+    color: white !important;
+    text-shadow: 0 4px 18px rgba(0,0,0,0.55);
+    margin-bottom: 0.3rem;
 }
 
 .sub-title {
     text-align: center;
-    font-size: 1.2rem;
-    color: #334155 !important;
-    margin-bottom: 20px;
+    font-size: 1.3rem;
+    color: #cbd5e1 !important;
+    margin-bottom: 2rem;
 }
-
-/* ===== CARDS ===== */
-.metric-box {
-    background: white;
-    padding: 1.2rem;
-    border-radius: 18px;
-    text-align: center;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.08);
-    border-top: 5px solid #2563eb;
-    transition: 0.3s;
-}
-
-.metric-box:hover {
-    transform: translateY(-5px);
-}
-
-.glass-card {
-    background: rgba(255,255,255,0.9);
-    padding: 1.2rem;
-    border-radius: 16px;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
-    margin-bottom: 15px;
-}
-
-/* ===== BUTTONS ===== */
-.stButton > button,
-.stDownloadButton > button {
-    background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
-    color: white !important;
-    border-radius: 10px !important;
-    font-weight: 600 !important;
-    border: none !important;
-    padding: 0.6rem 1.2rem !important;
-}
-
-.stDownloadButton > button:hover,
-.stButton > button:hover {
-    background: linear-gradient(135deg, #1d4ed8, #1e40af) !important;
-    color: white !important;
-}
-
-
 
 /* ===== TABS ===== */
+.stTabs [data-baseweb="tab-list"] {
+    background: transparent !important;
+    border-bottom: 1px solid rgba(255,255,255,0.15) !important;
+}
+
 .stTabs [data-baseweb="tab"] {
-    font-weight: 600;
-    color: #334155 !important;
+    background: transparent !important;
+    color: #f1f5f9 !important;
+    font-weight: 600 !important;
 }
 
 .stTabs [aria-selected="true"] {
-    color: #2563eb !important;
-    border-bottom: 3px solid #2563eb;
+    color: #60a5fa !important;
+    border-bottom: 3px solid #60a5fa !important;
 }
 
+.stTabs [data-baseweb="tab-panel"] {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding-top: 1rem !important;
+}
+
+/* ===== SELECTBOX ===== */
+.stSelectbox div[data-baseweb="select"] > div {
+    background: rgba(30, 41, 59, 0.75) !important;
+    border: 1px solid rgba(255,255,255,0.14) !important;
+    border-radius: 14px !important;
+    color: white !important;
+}
+.stSelectbox svg {
+    fill: white !important;
+}
+
+/* ===== METRIC CARDS ONLY ===== */
+.metric-box {
+    background: rgba(15, 23, 42, 0.82);
+    border-radius: 18px;
+    padding: 1.5rem 1rem;
+    text-align: center;
+    border-top: 4px solid #ef4444;
+    box-shadow: 0 10px 28px rgba(0,0,0,0.35);
+}
+
+/* ===== AQI BAR / ALERT BOXES ===== */
+.aqi-bar {
+    background: linear-gradient(90deg, #facc15, #f59e0b);
+    color: white !important;
+    padding: 1.2rem;
+    border-radius: 18px;
+    font-weight: 700;
+    text-align: center;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+}
+
+/* ===== REMOVE EXPANDER / FORM BOX BACKGROUND ===== */
+[data-testid="stExpander"] {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* ===== OPTIONAL: hide top gap ===== */
+section.main > div {
+    padding-top: 0rem !important;
+}
+
+/* ===== 12. MAIN ACTION BUTTONS (REFRESH & DOWNLOAD) ===== */ 
+.stButton > button, .stDownloadButton > button { 
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8) !important; 
+    color: #ffffff !important; 
+    border: none !important; 
+    border-radius: 8px !important;
+    font-weight: 700 !important;
+    padding: 0.6rem 1.2rem !important;
+    box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4) !important;
+    transition: all 0.3s ease !important;
+}
+.stButton > button:hover, .stDownloadButton > button:hover { 
+    background: linear-gradient(135deg, #2563eb, #1e40af) !important; 
+    box-shadow: 0 6px 20px rgba(37, 99, 235, 0.6) !important;
+    transform: translateY(-2px);
+}
 </style>
 """, unsafe_allow_html=True)
-# ================= HEADER =================
+
+# ==========================================
+# MAIN DASHBOARD HEADER
+# ==========================================
 st.markdown('<div class="main-title">EnviroScan Dashboard</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-title">AI-Powered Air Pollution Monitoring & Prediction System</div>', unsafe_allow_html=True)
+
+
 
 # ================= LOAD DATA =================
 df = pd.read_csv("vij_hyd_labelled_dataset.csv")
 
-model = joblib.load("gradient_boost_pollution_model.pkl")
-le = joblib.load("label_encoder.pkl")
+model = joblib.load("models/gradient_boost_pollution_model.pkl")
+le = joblib.load("models/label_encoder.pkl")
 
 FEATURE_COLS = [
     "pm2_5","pm10","no2","o3","so2","co",
@@ -414,47 +293,33 @@ with tab1:
     # AQI
     st.subheader(" Air Quality Index (AQI)")
 
-    def get_aqi_category(pm25):
-        if pm25 <= 0.15: return "Good "
-        elif pm25 <= 0.25: return "Moderate "
-        elif pm25 <= 0.50: return "Unhealthy "
-        elif pm25 <= 0.75: return "Poor "
-        else: return "Hazardous "
+    def get_aqi_status(pm25):
+        if pm25 <= 0.2:
+            return "Good ", "Air quality is good. Safe for outdoor activities."
+        elif pm25 <= 0.4:
+            return "Moderate ", "Moderate air quality. Sensitive people should reduce outdoor exposure."
+        elif pm25 <= 0.7:
+            return "Unhealthy ", "Wear a mask and avoid prolonged outdoor exposure."
+        else:
+            return "Hazardous ", "Stay indoors. Avoid outdoor activity completely."
 
     avg_pm25 = filtered_df["pm2_5"].mean()
-    aqi_status = get_aqi_category(avg_pm25)
-
+    status, advice = get_aqi_status(avg_pm25)
     st.markdown(f"""
     <div style="background: linear-gradient(135deg,#facc15,#f59e0b);
     padding:15px;border-radius:15px;color:white;text-align:center;">
-     AQI Status: {aqi_status}
+    AQI Status: {status}
     </div>
     """, unsafe_allow_html=True)
-
     st.write(f"Average PM2.5: {avg_pm25:.2f}")
-
-    # HEALTH
-    def health_advice(pm25):
-        if pm25 <= 0.15:
-            return "✅ Good air quality "
-        elif pm25 <= 0.25:
-            return "Sensitive individuals should reduce prolonged outdoor exertion"
-        elif pm25 <= 0.50:
-            return "Wear N95 mask and limit outdoor activities "
-        elif pm25 <= 0.75:
-            return "Very Unhealthy. Stay indoors, use air purifiers, and avoid physical exertion "
-        else:
-            return "Hazardous! Stay indoors "
-
     st.subheader(" Health Recommendations")
     st.markdown(f"""
-    <div style="background:#10b981;color:white;padding:15px;border-radius:15px;">
-    {health_advice(avg_pm25)}
-    </div>
-    """, unsafe_allow_html=True)
-
-    # SLIDERS
-        # ================= SAFE SLIDER FUNCTION =================
+   <div style="background:#10b981;color:white;padding:15px;border-radius:15px;">
+   {advice}
+   </div>
+   """, unsafe_allow_html=True)
+    
+# ================= SAFE SLIDER FUNCTION =================
     def safe_slider(label, series, is_int=False):
         min_val = series.min()
         max_val = series.max()
@@ -523,58 +388,54 @@ with tab1:
         mime="text/csv"
     )
     
-    #  EMAIL ALERT
-    import smtplib
-    from email.mime.text import MIMEText
 
-# ---------- AQI LOGIC ----------
-    def get_aqi_status(pm25):
-        if pm25 <= 0.15:
-            return "Good 🟢", "Air quality is good. Safe for outdoor activities."
-        elif pm25 <= 0.25:
-           return "Moderate 🟡", "Moderate air quality. Sensitive people should reduce outdoor exposure."
-        elif pm25 <= 0.50:
-           return "Unhealthy ⚠️", "Wear a mask and avoid prolonged outdoor exposure."
-        else:
-           return "Hazardous 🔴", "Stay indoors. Avoid outdoor activity completely."
+# ---------- EMAIL----------
+    
+    POLLUTANT_LIMITS = {
+    "pm2_5": 0.6,
+    "pm10": 0.5,
+    "no2": 0.4,
+    "co": 0.3,
+    "so2": 0.3,
+    "o3": 0.5
+}
+    st.subheader(" Alert System")
+    if "email_sent" not in st.session_state:
+        st.session_state.email_sent = False
+    try:
+        exceeded_pollutants = []
+        for pollutant, limit in POLLUTANT_LIMITS.items():
+                if pollutant in filtered_df.columns:
+                    avg_value = filtered_df[pollutant].mean()
+                    if pd.notna(avg_value) and avg_value > limit:
+                        exceeded_pollutants.append(
+                            f"{pollutant.upper()} → {avg_value:.2f} (Limit: {limit})"
+                            )
+        if exceeded_pollutants and not st.session_state.email_sent:
+                            alert_details = "\n".join(exceeded_pollutants)
+                            email_body = f"""
+                              Pollution Alert for {location}
+                              The following pollutants have exceeded safe limits:
+                              {alert_details}
+                              Health Advice:
+                              Avoid outdoor activities, wear masks, and monitor AQI regularly.
+                              """
+                            msg = MIMEText(email_body)
+                            msg["Subject"] = " Multi-Pollutant Alert"
+                            msg["From"] = "chandusst987@gmail.com"
+                            msg["To"] = "chandusst987@gmail.com"
+                            server = smtplib.SMTP("smtp.gmail.com", 587)
+                            server.starttls()
+                            server.login("chandusst987@gmail.com", "jiof corb rrbn gytq")
+                            server.send_message(msg)
+                            server.quit()
+                            st.session_state.email_sent = True
+                            st.error(" Alert! Multiple pollutants exceeded safe limits. Email sent!")
+        elif not exceeded_pollutants:
+                            st.success(" All pollutant levels are within safe limits.")
+                            st.session_state.email_sent = False
 
-# ---------- EMAIL BUTTON ----------
-    st.subheader(" Send Email Alert")
-
-    if st.button("Send Email Alert"):
-        try:
-            avg_pm25 = filtered_df["pm2_5"].mean()
-            if pd.notna(avg_pm25):
-                aqi_status, advice = get_aqi_status(avg_pm25)
-                avg_pm25_text = f"{avg_pm25:.2f}"
-            else:
-                aqi_status, advice = "Unknown", "No sufficient data available."
-                avg_pm25_text = "N/A"
-            email_body = f"""
-Pollution Alert for {location}
-
-AQI Status: {aqi_status}
-Average PM2.5: {avg_pm25_text}
-
-Health Advice:
-{advice}
-"""
-            msg = MIMEText(email_body)
-            msg["Subject"] = "🚨 Pollution Alert"
-            msg["From"] = "chandusst987@gmail.com"
-            msg["To"] = "chandusst987@gmail.com"
-            server = smtplib.SMTP("smtp.gmail.com", 587)
-            server.starttls()
-
-        # 🔴 IMPORTANT: USE APP PASSWORD
-            server.login("chandusst987@gmail.com", "jiof corb rrbn gytq")
-
-            server.send_message(msg)
-            server.quit()
-
-            st.success("✅ Email Sent Successfully!")
-
-        except Exception as e:
+    except Exception as e:
             st.error(f"Error: {e}")
 
 # ================= MAP =================
@@ -682,7 +543,7 @@ with tab3:
         .reindex(all_sources, fill_value=0)
 
     # TABLE
-    st.write("### 📋 Source Table")
+    st.write("###  Source Table")
     table_df = source_counts.reset_index()
     table_df.columns = ["Source", "Count"]
     st.dataframe(table_df)
@@ -735,7 +596,7 @@ with tab3:
     st.line_chart(trend)
 
     # ================= TOP LOCATIONS =================
-    st.subheader("Top Polluted Locations (PM2.5)")
+    st.subheader("Top Polluted Locations")
 
     top_locations = (
        df.groupby("location")["pm2_5"]
@@ -751,148 +612,179 @@ with tab3:
     top_df.columns = ["Location", "Avg PM2.5"]
     st.dataframe(top_df)
 
-# ================= CHATBOT =================
-import streamlit as st
-import pandas as pd
-from groq import Groq
-import httpx
-import re
+# ================= CHATBOT ===============#
 
 with tab4:
-    # --- 1. CSS: HIGH VISIBILITY FOR BUTTONS & TEXT ---
-    st.markdown("""
-        <style>
-        /* Force the Browse Files button to be Solid Blue */
-        [data-testid="stFileUploadDropzone"] button {
-            background-color: #2563eb !important; 
-            color: white !important;
-            border: 2px solid white !important;
-            padding: 10px 24px !important;
-            border-radius: 8px !important;
-            visibility: visible !important;
-            display: block !important;
-            font-weight: bold !important;
-        }
-        /* Make the drag-drop text dark and readable */
-        [data-testid="stFileUploadDropzone"] label, [data-testid="stFileUploadDropzone"] p {
-            color: #0f172a !important;
-            font-weight: 700 !important;
-        }
-        /* Professional Help Box Styling */
-        .help-container {
-            background-color: #f0f9ff;
-            border-left: 6px solid #0ea5e9;
-            padding: 20px;
-            border-radius: 8px;
-            margin: 15px 0;
-            color: #1e293b;
-            font-size: 0.95rem;
-        }
-        </style>
-    """, unsafe_allow_html=True)
 
+    # --- 1. FILE UPLOADER & PROCESSING ---
+    uploaded_files = st.file_uploader("Upload additional documents (PDF/CSV/DOCX)", type=["csv", "pdf", "docx"], accept_multiple_files=True)
     
+    uploaded_context = ""
+    if uploaded_files:
+        for file in uploaded_files:
+            try:
+                if file.name.endswith('.csv'):
+                    df_up = pd.read_csv(file)
+                    uploaded_context += f"--- Data from {file.name} ---\n{df_up.head(50).to_csv(index=False)}\n\n"
+                elif file.name.endswith('.pdf'):
+                    import PyPDF2
+                    reader = PyPDF2.PdfReader(file)
+                    text = ""
+                    for page in reader.pages:
+                        text += page.extract_text() + "\n"
+                    uploaded_context += f"--- Text from {file.name} ---\n{text[:4000]}\n\n" 
+                elif file.name.endswith('.docx'):
+                    import docx
+                    doc = docx.Document(file)
+                    text = "\n".join([para.text for para in doc.paragraphs])
+                    uploaded_context += f"--- Text from {file.name} ---\n{text[:4000]}\n\n"
+            except Exception as e:
+                st.warning(f"Could not read {file.name}. Ensure PyPDF2 and python-docx are installed. Error: {e}")
 
-    # --- 2. DATA LOADING ---
-    @st.cache_data
-    def get_full_dataset():
-        try:
-            df = pd.read_csv("vij_hyd_labelled_dataset.csv")
-            df['timestamp'] = pd.to_datetime(df['timestamp'])
-            return df
-        except Exception as e:
-            st.error(f"Dataset not found: {e}")
-            return None
+    # --- 2. CAPTURE INPUT FIRST ---
+    prompt = st.chat_input("Ask about the dataset, uploaded files, or general knowledge...")
 
-    base_df = get_full_dataset()
-    uploaded_files = st.file_uploader("Upload additional documents (PDF/CSV)", type=["csv", "pdf", "docx"], accept_multiple_files=True)
+    if prompt:
+        st.session_state.messages = [
+            {"role": "assistant", "content": " Type **help** to see what I can do!"}
+        ]
+    elif "messages" not in st.session_state:
+        st.session_state.messages = [
+            {"role": "assistant", "content": " Type **help** to see what I can do!"}
+        ]
 
-    # --- 3. CHAT INITIALIZATION ---
-    if "messages" not in st.session_state:
-        st.session_state.messages = [{"role": "assistant", "content": "I have access to all columns in the dataset (Pollution, Weather, Sources). Type **help** to see how to ask!"}]
-
+    # --- 3. RENDER THE CLEARED CHAT ---
     for m in st.session_state.messages:
-        with st.chat_message(m["role"]): st.markdown(m["content"])
+        with st.chat_message(m["role"]): 
+            st.markdown(m["content"])
 
     # --- 4. COMMAND & ANALYSIS LOGIC ---
-    if prompt := st.chat_input("Ask about a date, location, or weather..."):
+    if prompt:
         st.chat_message("user").markdown(prompt)
         st.session_state.messages.append({"role": "user", "content": prompt})
 
-        # --- A. HELP COMMAND ---
         if prompt.lower().strip() == "help":
             help_msg = """
-            <div class="help-container">
-            <h3>📖 Assistant Guide</h3>
-            <b>✅ You can ask questions like:</b>
-            <ul>
-                <li>"What was the pollution source at Zoo Park on 2026-02-05?"</li>
-                <li>"Give me <b>weather details</b> for Hyderabad on 2026-03-10."</li>
-                <li>"Compare PM2.5 levels between Somajiguda and Kanuru."</li>
-                <li>"What hour is industrial pollution highest?"</li>
-            </ul>
-            <b>⚠️ Limitations & Rules:</b>
-            <ul>
-                <li><b>Date Range:</b> Feb 1, 2026 to March 31, 2026 only.</li>
-                <li><b>Weather Details:</b> I only show Temp/Humidity/Wind if you specifically include the word 'weather' in your question.</li>
-                <li><b>Data Scope:</b> I can read all 33 columns including distances to roads/industries.</li>
-            </ul>
+            <div class="glass-card" style="text-align: left; padding: 20px;">
+                <h3 style="color: #3b82f6; margin-top: 0; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
+                    📖 Master Assistant Guide
+                </h3>
+                <b style="color: #f8fafc;">✅ I can answer 3 types of questions:</b>
+                <ul style="color: #cbd5e1; line-height: 1.8;">
+                    <li><b>1. Base Dataset:</b> "Compare temperature and PM10."</li>
+                    <li><b>2. Uploaded Files:</b> "Summarize the PDF I just uploaded"</li>
+                    <li><b>3. General Knowledge:</b> "What is AQI?", "How does rain affect pollution?"</li>
+                </ul>
             </div>
             """
             with st.chat_message("assistant"): st.markdown(help_msg, unsafe_allow_html=True)
             st.session_state.messages.append({"role": "assistant", "content": "Displayed help guide."})
 
-        # --- B. AI ANALYSIS ENGINE ---
         else:
-            # 1. Detect Date and Location in prompt
-            date_match = re.search(r'\d{4}-\d{2}-\d{2}', prompt)
-            
-            # 2. Check if user specifically asked for weather details
-            weather_terms = ["weather", "temp", "humidity", "wind", "pressure"]
-            wants_weather = any(term in prompt.lower() for term in weather_terms)
-            
+            global_knowledge = ""
             context_data = ""
-            if date_match and base_df is not None:
-                d = date_match.group(0)
-                # Filter by date
-                day_data = base_df[base_df['timestamp'].dt.date == pd.to_datetime(d).date()]
-                
-                # Further filter if a specific location is mentioned
-                locations = base_df['location'].unique()
-                for loc in locations:
-                    # Clean the location name for matching
-                    loc_short = loc.split(",")[0].lower()
-                    if loc_short in prompt.lower():
-                        day_data = day_data[day_data['location'].str.contains(loc_short, case=False)]
-                
-                if not day_data.empty:
-                    # Pulling ALL important columns to ensure LLM has the full picture
-                    context_data = day_data.head(20).to_string(index=False)
+            
+            # --- BASE DATASET FETCH ---
+            try:
+                chat_df = pd.read_csv("vij_hyd_labelled_dataset.csv")
+            except Exception as e:
+                chat_df = None
 
-            # 3. Call AI with specific instructions
+            if chat_df is not None:
+                temp_df = chat_df.copy()
+                temp_df['timestamp'] = pd.to_datetime(temp_df['timestamp']) 
+                temp_df['month'] = temp_df['timestamp'].dt.month_name()
+                temp_df['hour'] = temp_df['timestamp'].dt.hour
+                
+                # THE FIX: Added weather columns to the allowed Pandas list!
+                num_cols = ['co', 'pm2_5', 'pm10', 'no2', 'so2', 'o3', 'temperature_c', 'humidity', 'pressure_hpa', 'wind_speed_ms', 'wind_direction']
+                available_cols = [c for c in num_cols if c in temp_df.columns]
+                
+                monthly_trends = temp_df.groupby('month')[available_cols].mean().round(2).to_csv()
+                location_stats = temp_df.groupby('location')[available_cols].mean().round(2)
+                
+                if 'pm2_5' in available_cols:
+                    most_polluted_loc = location_stats['pm2_5'].idxmax()
+                    safest_loc = location_stats['pm2_5'].idxmin()
+                    hourly_stats = temp_df.groupby('hour')['pm2_5'].mean()
+                    worst_hour = f"{hourly_stats.idxmax()}:00"
+                    safest_hour = f"{hourly_stats.idxmin()}:00"
+                else:
+                    most_polluted_loc, safest_loc, worst_hour, safest_hour = "N/A", "N/A", "N/A", "N/A"
+
+                overall_source = temp_df['pollution_source'].mode()[0] if 'pollution_source' in temp_df.columns else "Unknown"
+                
+                global_knowledge = (
+                    f"DATASET TIMEFRAME: Feb 1, 2026 to March 31, 2026.\n\n"
+                    f"--- BASE DATASET EXTREMES ---\n"
+                    f"- Most Polluted Location (Highest PM2.5): {most_polluted_loc}\n"
+                    f"- Safest Location (Lowest PM2.5): {safest_loc}\n"
+                    f"- Most Polluted Hour of Day: {worst_hour}\n"
+                    f"- Safest Hour of Day: {safest_hour}\n"
+                    f"- Most Common Pollution Source Overall: {overall_source}\n\n"
+                    f"--- TRENDS BY MONTH (Base Dataset) ---\n{monthly_trends}\n"
+                    f"--- AVERAGES BY LOCATION (Base Dataset) ---\n{location_stats.to_csv()}\n"
+                )
+
+                date_match = re.search(r'\d{4}-\d{2}-\d{2}', prompt)
+                if date_match:
+                    d = date_match.group(0)
+                    day_data = temp_df[temp_df['timestamp'].dt.date == pd.to_datetime(d).date()]
+                    
+                    location_found = False
+                    for loc in temp_df['location'].unique():
+                        loc_short = str(loc).split(",")[0].lower().strip()
+                        if loc_short in prompt.lower():
+                            day_data = day_data[day_data['location'].str.lower().str.contains(loc_short, na=False)]
+                            location_found = True
+                            break
+                    
+                    if not day_data.empty:
+                        cols_to_keep = ['timestamp', 'location'] + available_cols + ['pollution_source']
+                        cols_to_keep = [c for c in cols_to_keep if c in day_data.columns]
+                        
+                        if location_found:
+                            context_data = "HOURLY DATA FOR REQUESTED LOCATION:\n" + day_data[cols_to_keep].head(24).to_csv(index=False)
+                        else:
+                            agg_dict = {c: 'mean' for c in available_cols}
+                            if 'pollution_source' in day_data.columns:
+                                agg_dict['pollution_source'] = lambda x: x.value_counts().index[0] if not x.value_counts().empty else 'Unknown'
+                            
+                            summary_df = day_data.groupby('location').agg(agg_dict).round(2).reset_index()
+                            context_data = f"DAILY AVERAGE PER LOCATION FOR {d}:\n" + summary_df.to_csv(index=False)
+
             try:
                 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
                 
-                # Instruction to control weather output
-                weather_rule = "The user wants weather details. Report Temp, Humidity, Wind, and Pressure." if wants_weather else "Do NOT report weather details unless they explain a pollution spike."
-                
                 system_instr = (
-                    f"You are a professional Environmental Data Analyst. {weather_rule}\n"
-                    "Always mention the 'pollution_source' for the requested date and location.\n"
-                    "If the user asks for a location/date not in the context, check the data carefully before saying it is missing.\n"
-                    f"FULL DATA CONTEXT:\n{context_data if context_data else 'No specific data found for this query.'}"
+                    "You are the EnviroScan Senior AI Environmental Consultant.\n\n"
+                    "HOW TO ANSWER (Choose the rule that fits the user's prompt):\n"
+                    "RULE 1 (BASE DATASET): If the user asks about trends, locations, extremes, comparisons (like weather vs pollutants), or dates in the dataset, use ONLY the 'GLOBAL KNOWLEDGE BASE' and 'SPECIFIC DATA TABLE' below.\n"
+                    "RULE 2 (UPLOADED FILES): If the user asks about an uploaded document, PDF, or CSV, use ONLY the 'UPLOADED FILE CONTEXT' below to answer.\n"
+                    "RULE 3 (GENERAL KNOWLEDGE): If the user asks a general scientific question, use your general training knowledge.\n\n"
+                    "FORMATTING (For Data Queries Only):\n"
+                    "If answering Rule 1 or Rule 2, format your response with: 'The Direct Answer', 'Public Health Implications', and 'Actionable Recommendations'.\n"
+                    "If answering Rule 3 (General Knowledge), just write a normal, helpful explanation.\n\n"
+                    f"--- GLOBAL KNOWLEDGE BASE (Base Dataset) ---\n{global_knowledge}\n\n"
+                    f"--- SPECIFIC DATA TABLE (Base Dataset Dates) ---\n{context_data if context_data else 'No specific date queried.'}\n\n"
+                    f"--- UPLOADED FILE CONTEXT ---\n{uploaded_context if uploaded_context else 'No files uploaded.'}"
                 )
 
                 response = client.chat.completions.create(
-                    messages=[{"role": "system", "content": system_instr}] + st.session_state.messages[-5:],
+                    messages=[
+                        {"role": "system", "content": system_instr},
+                        {"role": "user", "content": prompt}
+                    ],
                     model="llama-3.3-70b-versatile",
-                    temperature=0.1
+                    temperature=0.3, 
+                    max_tokens=1500
                 ).choices[0].message.content
                 
                 with st.chat_message("assistant"): st.markdown(response)
                 st.session_state.messages.append({"role": "assistant", "content": response})
             except Exception as e:
-                st.error(f"Error: {e}")
+                st.error(f"Error communicating with AI: {e}")
+
 
 with tab5:
     import streamlit as st
@@ -986,11 +878,11 @@ with tab5:
     # ================= AQI STATUS =================
     def get_aqi_status(aqi):
         return {
-            1: "Good 🟢",
-            2: "Fair 🟡",
-            3: "Moderate 🟠",
-            4: "Poor 🔴",
-            5: "Very Poor 🛑"
+            1: "Good ",
+            2: "Fair ",
+            3: "Moderate ",
+            4: "Poor ",
+            5: "Very Poor "
         }.get(aqi, "Unknown")
 
     # ================= HEALTH =================
